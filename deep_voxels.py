@@ -121,7 +121,7 @@ class DeepVoxels(nn.Module):
                              torch.zeros(
                                  (1, self.n_grid_feats, self.grid_dims[0], self.grid_dims[1], self.grid_dims[2])))
         
-        self.representation = nn.Parameter(torch.random.randn((1, self.n_grid_feats, 
+        self.representation = nn.Parameter(torch.randn((1, self.n_grid_feats, 
                 self.grid_dims[0], self.grid_dims[1], self.grid_dims[2]), dtype=torch.float32, requires_grad=True))
 
         self.integration_net = IntegrationNet(self.n_grid_feats,
