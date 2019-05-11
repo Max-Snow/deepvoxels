@@ -120,6 +120,9 @@ class DeepVoxels(nn.Module):
         self.register_buffer("deepvoxels",
                              torch.zeros(
                                  (1, self.n_grid_feats, self.grid_dims[0], self.grid_dims[1], self.grid_dims[2])))
+        
+        self.representation = nn.Parameter(torch.random.randn((1, self.n_grid_feats, 
+                self.grid_dims[0], self.grid_dims[1], self.grid_dims[2]), dtype=torch.float32, requires_grad=True))
 
         self.integration_net = IntegrationNet(self.n_grid_feats,
                                               use_dropout=True,
@@ -163,10 +166,8 @@ class DeepVoxels(nn.Module):
                 writer):
         if input_img is not None:
             # Training mode: Extract features from input img, lift them, and update the deepvoxels volume.
-            img_feats = self.feature_extractor(input_img)
-            temp_feat_vol = interpolate_lifting(img_feats, lift_volume_idcs, lift_img_coords, self.grid_dims)
-
-            dv_new = self.integration_net(temp_feat_vol, self.deepvoxels.detach(), writer)
+            
+            dv_new = self.representation
             self.deepvoxels.data = dv_new
         else:
             # Testing mode: Use the pre-trained deepvoxels volume.
