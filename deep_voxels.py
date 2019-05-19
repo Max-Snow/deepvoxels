@@ -117,7 +117,8 @@ class DeepVoxels(nn.Module):
 
         # The deepvoxels grid is registered as a buffer - meaning, it is safed together with model parameters, but is
         # not trainable.
-        self.representation = torch.zeros((1, self.n_grid_feats, self.grid_dims[0], self.grid_dims[1], self.grid_dims[2]))
+        self.representation = torch.zeros((1, self.n_grid_feats, self.grid_dims[0], self.grid_dims[1], 
+                                           self.grid_dims[2])).cuda()
 
         self.integration_net = IntegrationNet(self.n_grid_feats,
                                               use_dropout=True,
@@ -161,7 +162,8 @@ class DeepVoxels(nn.Module):
                 writer):
         if input_img is not None:
             # Training mode: Extract features from input img, lift them, and update the deepvoxels volume.
-            self.representation = torch.zeros((1, self.n_grid_feats, self.grid_dims[0], self.grid_dims[1], self.grid_dims[2]))
+            self.representation = torch.zeros((1, self.n_grid_feats, self.grid_dims[0], self.grid_dims[1], 
+                                               self.grid_dims[2])).cuda()
             for i, (lift_volume_idcs, lift_img_coords) in enumerate(zip(lift_volume_idcs_list, lift_img_coords_list)):
                 img_feats = self.feature_extractor(input_img[i])
                 temp_feat_vol = interpolate_lifting(img_feats, lift_volume_idcs, lift_img_coords, self.grid_dims)

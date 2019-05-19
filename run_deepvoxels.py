@@ -56,7 +56,7 @@ parser.add_argument('--near_plane', type=float, default=np.sqrt(3)/2,
                     help='Position of the near plane.')
 parser.add_argument('--batch_size', type=int, default=1,
                     help='batch_size')
-parser.add_argument('--num_inpt_views', type=int default=4,
+parser.add_argument('--num_inpt_views', type=int, default=4,
                     help='number of input views for each object')
 parser.add_argument('--num_trgt_views', type=int, default=1,
                     help='number of target views for each object')
@@ -192,7 +192,7 @@ def train():
                     backproj_mapping.append(projection.comp_lifting_idcs(camera_to_world=inpt_views[i]['pose']
                                                                          [batch].squeeze().to(device),
                                                                          grid2world=grid_origin))
-                    inpt_rgbs.append(inpt_views[i]['gt_rgb'][batch].unsqueeze(0))
+                    inpt_rgbs.append(inpt_views[i]['gt_rgb'][batch].unsqueeze(0).to(device))
 
 
                 proj_mappings = list()
@@ -212,7 +212,7 @@ def train():
 
                 proj_frustrum_idcs, proj_grid_coords = list(zip(*proj_mappings))
 
-                outputs, depth_maps = model(inpt_rgbs.to(device),
+                outputs, depth_maps = model(inpt_rgbs,
                                             proj_frustrum_idcs, proj_grid_coords,
                                             lift_volume_idcs, lift_img_coords,
                                             writer=writer)
@@ -234,7 +234,7 @@ def train():
                 l1_losses = list()
                 for idx in range(len(trgt_views)):
                     l1_losses.append(criterionL1(outputs[idx].contiguous().view(-1).float(),
-                                                 trgt_views[idx]['gt_rgb'][batch].to(device).view(-1).float()))
+                                                 trgt_views[idx]['gt_rgb'][batch, :, 5:-5, 5:-5].to(device).view(-1).float()))
 
                 losses_d = []
                 losses_g = []
@@ -290,11 +290,11 @@ def train():
                                      scale_each=True, normalize=True).cpu().detach().numpy(),
                                  iter)
                 writer.add_image("input_rgbs",
-                                 torchvision.utils.make_grid([rgb for rgb in inpt_rgbs], scale_each=True,
-                                                             normalize=True).detach().numpy(),
+                                 torchvision.utils.make_grid(inpt_rgbs[0], scale_each=True,
+                                                             normalize=True).cpu().detach().numpy(),
                                  iter)
                 output_vs_gt = torch.cat((torch.cat(outputs, dim=0),
-                                          torch.cat([i['gt_rgb'][-1].unsqueeze(0).to(device) for i in trgt_views], dim=0)),
+                                          torch.cat([i['gt_rgb'][-1, :, 5:-5, 5:-5].unsqueeze(0).to(device) for i in trgt_views], dim=0)),
                                          dim=0)
                 writer.add_image("Output_vs_gt",
                                  torchvision.utils.make_grid(output_vs_gt,
