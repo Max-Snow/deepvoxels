@@ -117,9 +117,7 @@ class DeepVoxels(nn.Module):
 
         # The deepvoxels grid is registered as a buffer - meaning, it is safed together with model parameters, but is
         # not trainable.
-        self.register_buffer("deepvoxels",
-                             torch.zeros(
-                                 (1, self.n_grid_feats, self.grid_dims[0], self.grid_dims[1], self.grid_dims[2])))
+        self.representation = torch.zeros((1, self.n_grid_feats, self.grid_dims[0], self.grid_dims[1], self.grid_dims[2]))
 
         self.integration_net = IntegrationNet(self.n_grid_feats,
                                               use_dropout=True,
@@ -158,16 +156,18 @@ class DeepVoxels(nn.Module):
                 input_img,
                 proj_frustrum_idcs_list,
                 proj_grid_coords_list,
-                lift_volume_idcs,
-                lift_img_coords,
+                lift_volume_idcs_list,
+                lift_img_coords_list,
                 writer):
         if input_img is not None:
             # Training mode: Extract features from input img, lift them, and update the deepvoxels volume.
-            img_feats = self.feature_extractor(input_img)
-            temp_feat_vol = interpolate_lifting(img_feats, lift_volume_idcs, lift_img_coords, self.grid_dims)
+            self.representation = torch.zeros((1, self.n_grid_feats, self.grid_dims[0], self.grid_dims[1], self.grid_dims[2]))
+            for i, (lift_volume_idcs, lift_img_coords) in enumerate(zip(lift_volume_idcs_list, lift_img_coords_list)):
+                img_feats = self.feature_extractor(input_img[i])
+                temp_feat_vol = interpolate_lifting(img_feats, lift_volume_idcs, lift_img_coords, self.grid_dims)
 
-            dv_new = self.integration_net(temp_feat_vol, self.deepvoxels.detach(), writer)
-            self.deepvoxels.data = dv_new
+                dv_new = self.integration_net(temp_feat_vol, self.representation, writer)
+                self.representation = dv_new
         else:
             # Testing mode: Use the pre-trained deepvoxels volume.
             dv_new = self.deepvoxels

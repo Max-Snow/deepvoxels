@@ -54,6 +54,12 @@ parser.add_argument('--nf0', type=int, default=64,
                     help='Number of features in outermost layer of U-Net architectures.')
 parser.add_argument('--near_plane', type=float, default=np.sqrt(3)/2,
                     help='Position of the near plane.')
+parser.add_argument('--batch_size', type=int, default=1,
+                    help='batch_size')
+parser.add_argument('--num_inpt_views', type=int default=4,
+                    help='number of input views for each object')
+parser.add_argument('--num_trgt_views', type=int, default=1,
+                    help='number of target views for each object')
 
 opt = parser.parse_args()
 print('\n'.join(["%s: %s" % (key, value) for key, value in vars(opt).items()]))
@@ -145,10 +151,11 @@ def train():
                          discriminator)
 
     # Create the training dataset loader
-    train_dataset = NovelViewTriplets(root_dir=opt.data_root,
+    train_dataset = TrainDataset(root_dir=opt.data_root,
                                       img_size=input_image_dims,
-                                      sampling_pattern=opt.sampling_pattern)
-    dataloader = DataLoader(train_dataset, batch_size=1, shuffle=True, num_workers=8)
+                                      num_inpt_views=opt.num_inpt_views,
+                                      num_trgt_views=opt.num_trgt_views)
+    dataloader = DataLoader(train_dataset, batch_size=opt.batch_size, shuffle=True, num_workers=8)
 
     # directory name contains some info about hyperparameters.
     dir_name = os.path.join(datetime.datetime.now().strftime('%m_%d'),
@@ -175,84 +182,98 @@ def train():
 
     print('Begin training...')
     for epoch in range(opt.start_epoch, opt.max_epoch):
-        for trgt_views, nearest_view in dataloader:
-            backproj_mapping = projection.comp_lifting_idcs(camera_to_world=nearest_view['pose'].squeeze().to(device),
-                                                            grid2world=grid_origin)
+        for inpt_views, trgt_views in dataloader:
+            loss_d = 0
+            loss_g = 0
+            for batch in range(opt.batch_size):
+                backproj_mapping = list()
+                inpt_rgbs = list()
+                for i in range(len(inpt_views)):
+                    backproj_mapping.append(projection.comp_lifting_idcs(camera_to_world=inpt_views[i]['pose']
+                                                                         [batch].squeeze().to(device),
+                                                                         grid2world=grid_origin))
+                    inpt_rgbs.append(inpt_views[i]['gt_rgb'][batch].unsqueeze(0))
 
-            proj_mappings = list()
-            for i in range(len(trgt_views)):
-                proj_mappings.append(projection.compute_proj_idcs(trgt_views[i]['pose'].squeeze().to(device),
-                                                                  grid2world=grid_origin))
 
-            if backproj_mapping is None:
-                print("Lifting invalid")
-                continue
-            else:
-                lift_volume_idcs, lift_img_coords = backproj_mapping
+                proj_mappings = list()
+                for i in range(len(trgt_views)):
+                    proj_mappings.append(projection.compute_proj_idcs(trgt_views[i]['pose'][batch].squeeze().to(device),
+                                                                      grid2world=grid_origin))
 
-            if None in proj_mappings:
-                print('Projection invalid')
-                continue
+                if backproj_mapping is None:
+                    print("Lifting invalid")
+                    continue
+                else:
+                    lift_volume_idcs, lift_img_coords = list(zip(*backproj_mapping))
 
-            proj_frustrum_idcs, proj_grid_coords = list(zip(*proj_mappings))
+                if None in proj_mappings:
+                    print('Projection invalid')
+                    continue
 
-            outputs, depth_maps = model(nearest_view['gt_rgb'].to(device),
-                                        proj_frustrum_idcs, proj_grid_coords,
-                                        lift_volume_idcs, lift_img_coords,
-                                        writer=writer)
+                proj_frustrum_idcs, proj_grid_coords = list(zip(*proj_mappings))
 
-            # Convert the depth maps to metric
-            for i in range(len(depth_maps)):
-                depth_maps[i] = ((depth_maps[i] + 0.5) * int(
-                    np.ceil(np.sqrt(3) * grid_dims[-1])) * voxel_size + opt.near_plane)
+                outputs, depth_maps = model(inpt_rgbs.to(device),
+                                            proj_frustrum_idcs, proj_grid_coords,
+                                            lift_volume_idcs, lift_img_coords,
+                                            writer=writer)
 
-            # We don't enforce a loss on the outermost 5 pixels to alleviate boundary errors
-            for i in range(len(trgt_views)):
-                outputs[i] = outputs[i][:, :, 5:-5, 5:-5]
-                trgt_views[i]['gt_rgb'] = trgt_views[i]['gt_rgb'][:, :, 5:-5, 5:-5]
+                # Convert the depth maps to metric
 
-            l1_losses = list()
-            for idx in range(len(trgt_views)):
-                l1_losses.append(criterionL1(outputs[idx].contiguous().view(-1).float(),
-                                             trgt_views[idx]['gt_rgb'].to(device).view(-1).float()))
+                for i in range(len(depth_maps)):
+                    depth_maps[i] = ((depth_maps[i] + 0.5) * int(
+                        np.ceil(np.sqrt(3) * grid_dims[-1])) * voxel_size + opt.near_plane)
 
-            losses_d = []
-            losses_g = []
 
-            optimizerD.zero_grad()
-            optimizerG.zero_grad()
+                # We don't enforce a loss on the outermost 5 pixels to alleviate boundary errors
 
-            for idx in range(len(trgt_views)):
-                #######
-                ## Train Discriminator
-                #######
-                out_perm = outputs[idx]  # batch, ndf, height, width
+                for i in range(len(trgt_views)):
+                    outputs[i] = outputs[i][:, :, 5:-5, 5:-5]
+                    #trgt_views[i]['gt_rgb'] = trgt_views[i]['gt_rgb'][:, :, 5:-5, 5:-5]
 
-                # Fake forward step
-                pred_fake = discriminator.forward(
-                    out_perm.detach())  # Detach to make sure no gradients go into generator
-                loss_d_fake = criterionGAN(pred_fake, False)
 
-                # Real forward step
-                real_input = trgt_views[idx]['gt_rgb'].float().to(device)
-                pred_real = discriminator.forward(real_input)
-                loss_d_real = criterionGAN(pred_real, True)
+                l1_losses = list()
+                for idx in range(len(trgt_views)):
+                    l1_losses.append(criterionL1(outputs[idx].contiguous().view(-1).float(),
+                                                 trgt_views[idx]['gt_rgb'][batch].to(device).view(-1).float()))
 
-                # Combined Loss
-                losses_d.append((loss_d_fake + loss_d_real) * 0.5)
+                losses_d = []
+                losses_g = []
 
-                #######
-                ## Train generator
-                #######
-                # Try to fake discriminator
-                pred_fake = discriminator.forward(out_perm)
-                loss_g_gan = criterionGAN(pred_fake, True)
+                optimizerD.zero_grad()
+                optimizerG.zero_grad()
 
-                loss_g_l1 = l1_losses[idx] * opt.l1_weight
-                losses_g.append(loss_g_gan + loss_g_l1)
 
-            loss_d = torch.stack(losses_d, dim=0).mean()
-            loss_g = torch.stack(losses_g, dim=0).mean()
+                for idx in range(len(trgt_views)):
+                    #######
+                    ## Train Discriminator
+                    #######
+                    out_perm = outputs[idx]  # batch, ndf, height, width
+
+                    # Fake forward step
+                    pred_fake = discriminator.forward(
+                        out_perm.detach())  # Detach to make sure no gradients go into generator
+                    loss_d_fake = criterionGAN(pred_fake, False)
+
+                    # Real forward step
+                    real_input = trgt_views[idx]['gt_rgb'][batch, :, 5:-5, 5:-5].unsqueeze(0).float().to(device)
+                    pred_real = discriminator.forward(real_input)
+                    loss_d_real = criterionGAN(pred_real, True)
+
+                    # Combined Loss
+                    losses_d.append((loss_d_fake + loss_d_real) * 0.5)
+
+                    #######
+                    ## Train generator
+                    #######
+                    # Try to fake discriminator
+                    pred_fake = discriminator.forward(out_perm)
+                    loss_g_gan = criterionGAN(pred_fake, True)
+
+                    loss_g_l1 = l1_losses[idx] * opt.l1_weight
+                    losses_g.append(loss_g_gan + loss_g_l1)
+
+            loss_d += torch.stack(losses_d, dim=0).mean()
+            loss_g += torch.stack(losses_g, dim=0).mean()
 
             loss_d.backward()
             optimizerD.step()
@@ -268,12 +289,12 @@ def train():
                                      [depth_map.squeeze(dim=0).repeat(3, 1, 1) for depth_map in depth_maps],
                                      scale_each=True, normalize=True).cpu().detach().numpy(),
                                  iter)
-                writer.add_image("Nearest_neighbors_rgb",
-                                 torchvision.utils.make_grid(nearest_view['gt_rgb'], scale_each=True,
+                writer.add_image("input_rgbs",
+                                 torchvision.utils.make_grid([rgb for rgb in inpt_rgbs], scale_each=True,
                                                              normalize=True).detach().numpy(),
                                  iter)
                 output_vs_gt = torch.cat((torch.cat(outputs, dim=0),
-                                          torch.cat([i['gt_rgb'].to(device) for i in trgt_views], dim=0)),
+                                          torch.cat([i['gt_rgb'][-1].unsqueeze(0).to(device) for i in trgt_views], dim=0)),
                                          dim=0)
                 writer.add_image("Output_vs_gt",
                                  torchvision.utils.make_grid(output_vs_gt,
@@ -294,7 +315,7 @@ def train():
 
             iter += 1
 
-            if iter % 10000 == 0:
+            if iter % 1000 == 0:
                 util.custom_save(model,
                                  os.path.join(log_dir, 'model-epoch_%d_iter_%s.pth' % (epoch, iter)),
                                  discriminator)
