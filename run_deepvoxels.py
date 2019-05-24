@@ -186,15 +186,18 @@ def train():
     print('Begin training...')
     for epoch in range(opt.start_epoch, opt.max_epoch):
         for inpt_views, trgt_views in dataloader:
+            
             loss_d = 0
             loss_g = 0
             for batch in range(opt.batch_size):
                 backproj_mapping = list()
                 inpt_rgbs = list()
                 for i in range(len(inpt_views)):
+                    assert inpt_views[0]['pose'].shape[0] == opt.batch_size
                     backproj_mapping.append(projection.comp_lifting_idcs(camera_to_world=inpt_views[i]['pose']
                                                                          [batch].squeeze().to(device),
                                                                          grid2world=grid_origin))
+                    
                     inpt_rgbs.append(inpt_views[i]['gt_rgb'][batch].unsqueeze(0).to(device))
 
 
@@ -212,7 +215,7 @@ def train():
                 if None in proj_mappings:
                     print('Projection invalid')
                     continue
-
+                
                 proj_frustrum_idcs, proj_grid_coords = list(zip(*proj_mappings))
 
                 outputs, depth_maps = model(inpt_rgbs,
@@ -225,7 +228,6 @@ def train():
                 for i in range(len(depth_maps)):
                     depth_maps[i] = ((depth_maps[i] + 0.5) * int(
                         np.ceil(np.sqrt(3) * grid_dims[-1])) * voxel_size + opt.near_plane)
-
 
                 # We don't enforce a loss on the outermost 5 pixels to alleviate boundary errors
 
@@ -275,13 +277,17 @@ def train():
                     loss_g_l1 = l1_losses[idx] * opt.l1_weight
                     losses_g.append(loss_g_gan + loss_g_l1)
 
-            loss_d += torch.stack(losses_d, dim=0).mean()
-            loss_g += torch.stack(losses_g, dim=0).mean()
-
+                loss_d += torch.stack(losses_d, dim=0).mean()
+                loss_g += torch.stack(losses_g, dim=0).mean()
+            
+            loss_d /= opt.batch_size
+            loss_g /= opt.batch_size
+            
             loss_d.backward()
             optimizerD.step()
             loss_g.backward()
             optimizerG.step()
+
 
             print("Iter %07d   Epoch %03d   loss_gen %0.4f   loss_discrim %0.4f" % (iter, epoch, loss_g, loss_d))
 
@@ -322,10 +328,9 @@ def train():
                 util.custom_save(model,
                                  os.path.join(log_dir, 'model-epoch_%d_iter_%s.pth' % (epoch, iter)),
                                  discriminator)
+                
 
-    util.custom_save(model,
-                     os.path.join(log_dir, 'model-epoch_%d_iter_%s.pth' % (epoch, iter)),
-                     discriminator)
+    
 
 
 def test():

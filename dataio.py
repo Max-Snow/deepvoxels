@@ -77,11 +77,12 @@ class TrainDataset():
     
     def __getitem__(self, idx):
         
-        inpt_views = self.all_views[idx*(self.num_inpt_views+self.num_trgt_views):
-                                    (idx+1)*self.num_inpt_views+idx*self.num_trgt_views]
-        inpt_views = random.sample(inpt_views, len(inpt_views))
-        trgt_views = self.all_views[(idx+1)*self.num_inpt_views+idx*self.num_trgt_views:
-                                   (idx+1)*(self.num_inpt_views+self.num_trgt_views)]
+        views = self.all_views[idx*(self.num_inpt_views+self.num_trgt_views):
+                              (idx+1)*(self.num_inpt_views+self.num_trgt_views)]
+        views = random.sample(views, len(views))
+        
+        inpt_views = views[:self.num_inpt_views]
+        trgt_views = views[self.num_inpt_views:]
 
         return inpt_views, trgt_views
 
