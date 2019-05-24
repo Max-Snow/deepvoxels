@@ -31,15 +31,17 @@ class TrainDataset():
                  root_dir,
                  img_size=[512,512],
                  num_inpt_views=4,
-                 num_trgt_views=1):
+                 num_trgt_views=1,
+                 num_views=10):
         super().__init__()
 
         self.img_size = img_size
         self.num_inpt_views = num_inpt_views
         self.num_trgt_views = num_trgt_views
+        self.num_views = num_views
 
-        self.color_dir = os.path.join(root_dir, 'rgb')
-        self.pose_dir = os.path.join(root_dir, 'pose')
+        self.color_dir = os.path.join(root_dir, 'train_rgb')
+        self.pose_dir = os.path.join(root_dir, 'train_pose')
 
         if not os.path.isdir(self.color_dir):
             print("Error! root dir is wrong")
@@ -50,13 +52,14 @@ class TrainDataset():
         
         print("Buffering files...")
         self.all_views = []
-        for i in range(len(self.all_color)):
-            if not i % 10:
-                print(i)
-            self.all_views.append(self.read_view_tuple(i))
+        for i in range(self.__len__()):
+            for j in range(self.num_inpt_views + self.num_trgt_views):
+                if not i % 10:
+                    print(i)
+                self.all_views.append(self.read_view_tuple(i * self.num_views + j))
             
     def __len__(self):
-        return len(self.all_color)//(self.num_inpt_views + self.num_trgt_views)
+        return len(self.all_color)//self.num_views
         
     def load_rgb(self, path):
         img = data_util.load_img(path, square_crop=True, downsampling_order=1, target_size=self.img_size)

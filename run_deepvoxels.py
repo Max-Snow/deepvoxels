@@ -60,6 +60,8 @@ parser.add_argument('--num_inpt_views', type=int, default=4,
                     help='number of input views for each object')
 parser.add_argument('--num_trgt_views', type=int, default=1,
                     help='number of target views for each object')
+parser.add_argument('--num_views', type=int, default=10,
+                    help='number of views for each object')
 
 opt = parser.parse_args()
 print('\n'.join(["%s: %s" % (key, value) for key, value in vars(opt).items()]))
@@ -154,7 +156,8 @@ def train():
     train_dataset = TrainDataset(root_dir=opt.data_root,
                                       img_size=input_image_dims,
                                       num_inpt_views=opt.num_inpt_views,
-                                      num_trgt_views=opt.num_trgt_views)
+                                      num_trgt_views=opt.num_trgt_views,
+                                      num_views=opt.num_views)
     dataloader = DataLoader(train_dataset, batch_size=opt.batch_size, shuffle=True, num_workers=8)
 
     # directory name contains some info about hyperparameters.
