@@ -20,6 +20,8 @@ import util
 
 import time
 
+import psutil
+
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--train_test', type=str, required=True,
@@ -105,6 +107,7 @@ model = DeepVoxels(lifting_img_dims=proj_image_dims,
                    img_sidelength=input_image_dims[0])
 model.to(device)
 
+
 # Projection module
 projection = ProjectionHelper(projection_intrinsic=proj_intrinsic,
                               lifting_intrinsic=lift_intrinsic,
@@ -117,6 +120,7 @@ projection = ProjectionHelper(projection_intrinsic=proj_intrinsic,
                               device=device,
                               frustrum_depth=frustrum_depth,
                               near_plane=near_plane)
+
 
 # L1 loss
 criterionL1 = nn.L1Loss(reduction='mean').to(device)
@@ -153,12 +157,14 @@ def train():
                          discriminator)
 
     # Create the training dataset loader
-    train_dataset = TrainDataset(root_dir=opt.data_root,
+    train_dataset = TrainDataset2(root_dir=opt.data_root,
                                       img_size=input_image_dims,
                                       num_inpt_views=opt.num_inpt_views,
                                       num_trgt_views=opt.num_trgt_views,
                                       num_views=opt.num_views)
+    
     dataloader = DataLoader(train_dataset, batch_size=opt.batch_size, shuffle=True, num_workers=8)
+    
 
     # directory name contains some info about hyperparameters.
     dir_name = os.path.join(datetime.datetime.now().strftime('%m_%d'),
@@ -189,11 +195,11 @@ def train():
             
             loss_d = 0
             loss_g = 0
-            for batch in range(opt.batch_size):
+            batch_size = inpt_views[0]['pose'].shape[0]
+            for batch in range(batch_size):
                 backproj_mapping = list()
                 inpt_rgbs = list()
                 for i in range(len(inpt_views)):
-                    assert inpt_views[0]['pose'].shape[0] == opt.batch_size
                     backproj_mapping.append(projection.comp_lifting_idcs(camera_to_world=inpt_views[i]['pose']
                                                                          [batch].squeeze().to(device),
                                                                          grid2world=grid_origin))
