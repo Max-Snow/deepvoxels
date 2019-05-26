@@ -364,6 +364,8 @@ def test():
     
     print('starting pretesting...')
     with torch.no_grad():
+        model.representation = torch.zeros((1, model.n_grid_feats, model.grid_dims[0], 
+                                            model.grid_dims[1], model.grid_dims[2])).cuda()
         for inpt_views in pretest_dataloader:
             batch = 0
             backproj_mapping = list()
