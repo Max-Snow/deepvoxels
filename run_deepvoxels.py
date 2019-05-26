@@ -221,13 +221,11 @@ def train():
                 if None in proj_mappings:
                     print('Projection invalid')
                     continue
-                
+
                 proj_frustrum_idcs, proj_grid_coords = list(zip(*proj_mappings))
 
-                outputs, depth_maps = model(inpt_rgbs, mode='train'
-                                            proj_frustrum_idcs, proj_grid_coords,
-                                            lift_volume_idcs, lift_img_coords,
-                                            writer=writer)
+                outputs, depth_maps = model(inpt_rgbs, 'train', proj_frustrum_idcs, proj_grid_coords,
+                                              lift_volume_idcs, lift_img_coords, writer=writer)
 
                 # Convert the depth maps to metric
 
@@ -330,7 +328,7 @@ def train():
 
             iter += 1
 
-            if iter % 1000 == 0:
+            if iter % 100 == 0:
                 util.custom_save(model,
                                  os.path.join(log_dir, 'model-epoch_%d_iter_%s.pth' % (epoch, iter)),
                                  discriminator)
@@ -341,9 +339,9 @@ def train():
 
 def test():
     # Create the training dataset loader
-    pretest_dataset = PretestDataset(root_dir=opt.data_root)
-    test_dataset = TestDataset(root_dir=opt.data_root, img_size=input_image_dims,
-                               num_inpt_views=4, ttl_num_views=20)
+    pretest_dataset = PretestDataset(root_dir=opt.data_root, img_size=input_image_dims,
+                               num_inpt_views=4, ttl_num_views=4)
+    test_dataset = TestDataset(root_dir=opt.data_root)
 
     util.custom_load(model, opt.checkpoint)
     model.eval()
@@ -383,7 +381,7 @@ def test():
             else:
                 lift_volume_idcs, lift_img_coords = list(zip(*backproj_mapping))
 
-            model(inpt_rgbs, mode='pretest', None, None, lift_volume_idcs, lift_img_coords, None)
+            model(inpt_rgbs, 'pretest', None, None, lift_volume_idcs, lift_img_coords, None)
 
     forward_time = 0.
 
@@ -404,7 +402,7 @@ def test():
             proj_ind_3d, proj_ind_2d = proj_mapping
 
             # Run through model
-            output, depth_maps, = model(None, mode='test',
+            output, depth_maps = model(None, 'test',
                                         [proj_ind_3d], [proj_ind_2d],
                                         None, None,
                                         None)

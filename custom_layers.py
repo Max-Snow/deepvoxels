@@ -70,7 +70,6 @@ class IntegrationNet(torch.nn.Module):
         coord_conv_volume = np.stack(coord_conv_volume, axis=0).astype(np.float32)
         coord_conv_volume = coord_conv_volume / grid_dim
         self.coord_conv_volume = torch.Tensor(coord_conv_volume).float().cuda()[None, :, :, :, :]
-        self.counter = 0
 
     def forward(self, new_observation, old_state, writer):
 
@@ -81,32 +80,6 @@ class IntegrationNet(torch.nn.Module):
         update = self.sigmoid(self.update_old_net(old_state_coord) + self.update_new_net(new_observation_coord))
 
         final = self.relu(self.new_integration(new_observation_coord) + self.old_integration(reset * old_state_coord))
-
-        if not self.counter % 100:
-            # Plot the volumes
-            fig = plt.figure()
-            ax = fig.add_subplot(111, projection='3d')
-            update_values = update.mean(dim=1).squeeze().cpu().detach().numpy()
-            x, y, z = np.where(update_values)
-            x, y, z = x[::3], y[::3], z[::3]
-            ax.scatter(x, y, z, s=update_values[x, y, z] * 5)
-
-            writer.add_figure("update_gate",
-                              fig,
-                              self.counter,
-                              close=True)
-
-            fig = plt.figure()
-            ax = fig.add_subplot(111, projection='3d')
-            reset_values = reset.mean(dim=1).squeeze().cpu().detach().numpy()
-            x, y, z = np.where(reset_values)
-            x, y, z = x[::3], y[::3], z[::3]
-            ax.scatter(x, y, z, s=reset_values[x, y, z] * 5)
-            writer.add_figure("reset_gate",
-                              fig,
-                              self.counter,
-                              close=True)
-        self.counter += 1
 
         result = ((1 - update) * old_state + update * final)
         return result

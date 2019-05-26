@@ -178,7 +178,7 @@ class DeepVoxels(nn.Module):
                 self.representation = self.representation.detach()
                 return
                 
-        else if mode == 'test':
+        elif mode == 'test':
             # Testing mode: Use the pre-trained deepvoxels volume.
             dv_new = self.representation.detach()
 
