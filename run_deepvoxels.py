@@ -64,6 +64,10 @@ parser.add_argument('--num_trgt_views', type=int, default=1,
                     help='number of target views for each object')
 parser.add_argument('--num_views', type=int, default=10,
                     help='number of views for each object')
+parser.add_argument('--pre_num_inpt_views', type=int, default=4,
+                    help='number of input views for pretesting')
+parser.add_argument('--pre_ttl_num_views', type=int, default=20,
+                    help='total number of views for pretesting')
 
 opt = parser.parse_args()
 print('\n'.join(["%s: %s" % (key, value) for key, value in vars(opt).items()]))
@@ -328,7 +332,7 @@ def train():
 
             iter += 1
 
-            if iter % 100 == 0:
+            if iter % 3000 == 0:
                 util.custom_save(model,
                                  os.path.join(log_dir, 'model-epoch_%d_iter_%s.pth' % (epoch, iter)),
                                  discriminator)
@@ -340,7 +344,7 @@ def train():
 def test():
     # Create the training dataset loader
     pretest_dataset = PretestDataset(root_dir=opt.data_root, img_size=input_image_dims,
-                               num_inpt_views=4, ttl_num_views=4)
+                               num_inpt_views=opt.pre_num_inpt_views, ttl_num_views=opt.pre_ttl_num_views)
     test_dataset = TestDataset(root_dir=opt.data_root)
 
     util.custom_load(model, opt.checkpoint)
