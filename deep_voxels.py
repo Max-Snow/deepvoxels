@@ -155,24 +155,32 @@ class DeepVoxels(nn.Module):
 
     def forward(self,
                 input_img,
+                mode,
                 proj_frustrum_idcs_list,
                 proj_grid_coords_list,
                 lift_volume_idcs_list,
                 lift_img_coords_list,
                 writer):
-        if input_img is not None:
+        if mode != 'test':
             # Training mode: Extract features from input img, lift them, and update the deepvoxels volume.
-            self.representation = torch.zeros((1, self.n_grid_feats, self.grid_dims[0], self.grid_dims[1], 
-                                               self.grid_dims[2])).cuda()
+            if mode == 'train':
+                self.representation = torch.zeros((1, self.n_grid_feats, self.grid_dims[0], self.grid_dims[1], 
+                                                   self.grid_dims[2])).cuda()
+                
             for i, (lift_volume_idcs, lift_img_coords) in enumerate(zip(lift_volume_idcs_list, lift_img_coords_list)):
                 img_feats = self.feature_extractor(input_img[i])
                 temp_feat_vol = interpolate_lifting(img_feats, lift_volume_idcs, lift_img_coords, self.grid_dims)
 
                 dv_new = self.integration_net(temp_feat_vol, self.representation, writer)
                 self.representation = dv_new
-        else:
+                
+            if mode == 'pretest':
+                self.representation = self.representation.detach()
+                return
+                
+        else if mode == 'test':
             # Testing mode: Use the pre-trained deepvoxels volume.
-            dv_new = self.deepvoxels
+            dv_new = self.representation.detach()
 
         inpainting_input = torch.cat([dv_new, self.coord_conv_volume], dim=1)
         dv_inpainted = self.inpainting_net(inpainting_input)

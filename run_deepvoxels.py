@@ -224,7 +224,7 @@ def train():
                 
                 proj_frustrum_idcs, proj_grid_coords = list(zip(*proj_mappings))
 
-                outputs, depth_maps = model(inpt_rgbs,
+                outputs, depth_maps = model(inpt_rgbs, mode='train'
                                             proj_frustrum_idcs, proj_grid_coords,
                                             lift_volume_idcs, lift_img_coords,
                                             writer=writer)
@@ -341,12 +341,15 @@ def train():
 
 def test():
     # Create the training dataset loader
-    dataset = TestDataset(pose_dir=os.path.join(opt.data_root, 'pose'))
+    pretest_dataset = PretestDataset(root_dir=opt.data_root)
+    test_dataset = TestDataset(root_dir=opt.data_root, img_size=input_image_dims,
+                               num_inpt_views=4, ttl_num_views=20)
 
     util.custom_load(model, opt.checkpoint)
     model.eval()
 
-    dataloader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=4)
+    pretest_dataloader = DataLoader(pretest_dataset, batch_size=1, shuffle=True, num_workers=4)
+    test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=False, num_workers=4)
 
     dir_name = os.path.join(datetime.datetime.now().strftime('%m_%d'),
                             datetime.datetime.now().strftime('%H-%M-%S_') +
@@ -358,6 +361,27 @@ def test():
 
     data_util.cond_mkdir(traj_dir)
     data_util.cond_mkdir(depth_dir)
+    
+    print('starting pretesting...')
+    with torch.no_grad():
+        for inpt_views in pretest_dataloader:
+            batch = 0
+            backproj_mapping = list()
+            inpt_rgbs = list()
+            for i in range(len(inpt_views)):
+                backproj_mapping.append(projection.comp_lifting_idcs(camera_to_world=inpt_views[i]['pose']
+                                                                     [batch].squeeze().to(device),
+                                                                     grid2world=grid_origin))
+
+                inpt_rgbs.append(inpt_views[i]['gt_rgb'][batch].unsqueeze(0).to(device)) 
+
+            if backproj_mapping is None:
+                print("Lifting invalid")
+                continue
+            else:
+                lift_volume_idcs, lift_img_coords = list(zip(*backproj_mapping))
+
+            model(inpt_rgbs, mode='pretest', None, None, lift_volume_idcs, lift_img_coords, None)
 
     forward_time = 0.
 
@@ -365,7 +389,7 @@ def test():
     with torch.no_grad():
         iter = 0
         depth_imgs = []
-        for trgt_pose in dataloader:
+        for trgt_pose in test_dataloader:
             trgt_pose = trgt_pose.squeeze().to(device)
 
             start = time.time()
@@ -378,7 +402,7 @@ def test():
             proj_ind_3d, proj_ind_2d = proj_mapping
 
             # Run through model
-            output, depth_maps, = model(None,
+            output, depth_maps, = model(None, mode='test',
                                         [proj_ind_3d], [proj_ind_2d],
                                         None, None,
                                         None)
