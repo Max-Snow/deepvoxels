@@ -68,13 +68,15 @@ parser.add_argument('--pre_num_inpt_views', type=int, default=4,
                     help='number of input views for pretesting')
 parser.add_argument('--pre_ttl_num_views', type=int, default=20,
                     help='total number of views for pretesting')
+parser.add_argument('--input_image_dims', type=int, default=512,
+                    help='input image dimension')
 
 opt = parser.parse_args()
 print('\n'.join(["%s: %s" % (key, value) for key, value in vars(opt).items()]))
 
 device = torch.device('cuda')
 
-input_image_dims = [512, 512]
+input_image_dims = [opt.input_image_dims, opt.input_image_dims]
 proj_image_dims = [64, 64] # Height, width of 2d feature map used for lifting and rendering.
 
 # Read origin of grid, scale of each voxel, and near plane
@@ -161,7 +163,7 @@ def train():
                          discriminator)
 
     # Create the training dataset loader
-    train_dataset = TrainDataset2(root_dir=opt.data_root,
+    train_dataset = TrainDataset(root_dir=opt.data_root,
                                       img_size=input_image_dims,
                                       num_inpt_views=opt.num_inpt_views,
                                       num_trgt_views=opt.num_trgt_views,
