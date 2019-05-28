@@ -35,13 +35,9 @@ parser.add_argument('--experiment_name', type=str, default='', help='(optional) 
 parser.add_argument('--max_epoch', type=int, default=400, help='Maximum number of epochs to train for.')
 parser.add_argument('--lr', type=float, default=0.0004, help='Learning rate.')
 parser.add_argument('--l1_weight', type=float, default=200, help='Weight of l1 loss.')
-parser.add_argument('--sampling_pattern', type=str, default='skip_2', required=False,
-                    help='Whether to use \"all\" images or whether to skip n images (\"skip_1\" picks every 2nd image.')
 
 parser.add_argument('--no_occlusion_net', action='store_true', default=False,
                     help='Disables occlusion net and replaces it with a fully convolutional 2d net.')
-parser.add_argument('--num_trgt', type=int, default=2, required=False,
-                    help='How many novel views will be generated at training time.')
 
 parser.add_argument('--checkpoint', default='',
                     help='Path to a checkpoint to load model weights from.')

@@ -22,6 +22,7 @@ def square_crop_img(img):
 
 def load_img(filepath, target_size=None, anti_aliasing=True, downsampling_order=None, square_crop=False):
     img = cv2.imread(filepath, cv2.IMREAD_UNCHANGED)
+    img[(img == np.array([0, 0, 0, 0])).all(axis=-1)] = np.array([255, 255, 255, 255])
 
     if img is None:
         print("Error: Path %s invalid" % filepath)
