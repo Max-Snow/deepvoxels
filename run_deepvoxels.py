@@ -171,9 +171,7 @@ def train():
     # directory name contains some info about hyperparameters.
     dir_name = os.path.join(datetime.datetime.now().strftime('%m_%d'),
                             datetime.datetime.now().strftime('%H-%M-%S_') +
-                            (opt.sampling_pattern + '_') +
                             ('%0.2f_l1_weight_' % opt.l1_weight) +
-                            ('%d_trgt_' % opt.num_trgt) +
                             '_' + opt.data_root.strip('/').split('/')[-1] +
                             opt.experiment_name)
 
