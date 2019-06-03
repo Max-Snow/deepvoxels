@@ -71,7 +71,7 @@ class IntegrationNet(torch.nn.Module):
         coord_conv_volume = coord_conv_volume / grid_dim
         self.coord_conv_volume = torch.Tensor(coord_conv_volume).float().cuda()[None, :, :, :, :]
 
-    def forward(self, new_observation, old_state, writer, return_update=False):
+    def forward(self, new_observation, old_state, writer, return_gates=False):
 
         old_state_coord = torch.cat([old_state, self.coord_conv_volume], dim=1)
         new_observation_coord = torch.cat([new_observation, self.coord_conv_volume], dim=1)
@@ -83,10 +83,10 @@ class IntegrationNet(torch.nn.Module):
 
         result = ((1 - update) * old_state + update * final)
         
-        if return_update:
-            return (result, update.detach())
+        if return_gates:
+            return result, update.detach(), old_state.detach(), final.detach()
         else:
-            return (result, None)
+            return result, None, None, None
 
 
 class OcclusionNet(nn.Module):

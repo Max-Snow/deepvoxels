@@ -161,7 +161,7 @@ class DeepVoxels(nn.Module):
                 lift_volume_idcs_list,
                 lift_img_coords_list,
                 writer,
-                return_update=False):
+                return_gates=False):
         if mode != 'test':
             # Training mode: Extract features from input img, lift them, and update the deepvoxels volume.
             if mode == 'train':
@@ -172,12 +172,12 @@ class DeepVoxels(nn.Module):
                 img_feats = self.feature_extractor(input_img[i])
                 temp_feat_vol = interpolate_lifting(img_feats, lift_volume_idcs, lift_img_coords, self.grid_dims)
 
-                dv_new, update = self.integration_net(temp_feat_vol, self.representation, writer, return_update=return_update)
+                dv_new, update, old_state, final = self.integration_net(temp_feat_vol, self.representation, writer, return_gates=return_gates)
                 self.representation = dv_new
                 
             if mode == 'pretest':
                 self.representation = self.representation.detach()
-                return update
+                return update, old_state, final
                 
         elif mode == 'test':
             # Testing mode: Use the pre-trained deepvoxels volume.
