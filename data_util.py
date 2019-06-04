@@ -10,6 +10,7 @@ import pickle as pck
 import math
 from scipy.linalg import logm, norm
 import shutil
+from scipy.io import loadmat
 
 
 def square_crop_img(img):
@@ -47,6 +48,10 @@ def load_img(filepath, target_size=None, anti_aliasing=True, downsampling_order=
 
 
 def load_pose(filename):
+    if filename[-3:] == 'mat':
+        pose = loadmat(filename)['extrinsic']
+        pose = np.linalg.inv(pose).astype(np.float32)
+        return pose
     lines = open(filename).read().splitlines()
     if len(lines) == 1:
         pose = np.zeros((4, 4), dtype=np.float32)

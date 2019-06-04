@@ -18,7 +18,7 @@ class TestDataset():
         super().__init__()
 
         pose_dir = os.path.join(root_dir, 'test_pose')
-        all_pose_paths = sorted(glob(os.path.join(pose_dir, '*.txt')))
+        all_pose_paths = sorted(glob(os.path.join(pose_dir, '*')))
         self.all_poses = [torch.from_numpy(data_util.load_pose(path)) for path in all_pose_paths]
 
     def __len__(self):
@@ -51,7 +51,7 @@ class TrainDataset(torch.utils.data.Dataset):
             return
 
         self.all_color = sorted(data_util.glob_imgs(self.color_dir))
-        self.all_poses = sorted(glob(os.path.join(self.pose_dir, '*.txt')))
+        self.all_poses = sorted(glob(os.path.join(self.pose_dir, '*')))
         
             
     def __len__(self):
@@ -105,7 +105,7 @@ class PretestDataset(torch.utils.data.Dataset):
             return
 
         self.all_color = sorted(data_util.glob_imgs(self.color_dir))
-        self.all_poses = sorted(glob(os.path.join(self.pose_dir, '*.txt')))
+        self.all_poses = sorted(glob(os.path.join(self.pose_dir, '*')))
         
             
     def __len__(self):

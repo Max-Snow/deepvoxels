@@ -349,10 +349,7 @@ def test():
     pretest_dataloader = DataLoader(pretest_dataset, batch_size=1, shuffle=True, num_workers=4)
     test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=False, num_workers=4)
 
-    dir_name = os.path.join(datetime.datetime.now().strftime('%m_%d'),
-                            datetime.datetime.now().strftime('%H-%M-%S_') +
-                            '_'.join(opt.checkpoint.strip('/').split('/')[-2:]) + '_'
-                            + opt.data_root.strip('/').split('/')[-1])
+    dir_name = opt.data_root.split('/')[-1]
 
     traj_dir = os.path.join(opt.logging_root, 'test_traj', dir_name)
     depth_dir = os.path.join(traj_dir, 'depth')
